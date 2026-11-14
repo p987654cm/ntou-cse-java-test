@@ -16,6 +16,7 @@
 - [套件快取參數說明](#套件快取參數說明)
 - [專案檔案導覽](#專案檔案導覽)
 - [常見問題](#常見問題)
+- [1114 作業：課程報名與費用計算](#1114-作業課程報名與費用計算)
 
 ## 專案在做什麼
 
@@ -247,7 +248,7 @@ mvn "-Dtest=GraphCoverageAnalysisTest" test
 
 ### 隨附報告的結果
 
-以下是 2026-10-10 重新執行全部案例並更新至 `reports` 的結果：
+以下是 2026-10-10 重新執行全部案例並更新至 `reports` 的密碼檢查器結果；1114 作業加入的 `CourseRegistrationPolicy` 結果見 [1114 作業](#1114-作業課程報名與費用計算)：
 
 | 項目 | 結果 |
 |---|---|
@@ -298,9 +299,13 @@ mvn "-Dmaven.repo.local=.m2" "-Dtest=PasswordValidatorTest#rejectsNull" test
 | [EdgePairCoverageTest.java](src/test/java/tw/edu/testing/EdgePairCoverageTest.java) | 作業 2-2 Edge-Pair coverage，3 個案例 |
 | [PathCoverageTest.java](src/test/java/tw/edu/testing/PathCoverageTest.java) | 作業 2-3 Path coverage，3 個案例 |
 | [StressCoverageTest.java](src/test/java/tw/edu/testing/StressCoverageTest.java) | 作業 3 Stress Testing coverage，5 個案例 |
+| [CourseRegistrationPolicy.java](src/main/java/tw/edu/testing/CourseRegistrationPolicy.java) | 1114 作業受測程式：`canEnroll`、`calculateFee` |
+| [CourseRegistrationLogicTest.java](src/test/java/tw/edu/testing/CourseRegistrationLogicTest.java) | 1114 作業 #4 Logical Expressions coverage，L1～L8 |
+| [CourseRegistrationDomainTest.java](src/test/java/tw/edu/testing/CourseRegistrationDomainTest.java) | 1114 作業 #5 Input Domain Characterization，D1～D6 |
 | [PasswordValidatorCfg.java](src/test/java/tw/edu/testing/PasswordValidatorCfg.java) | 控制流程圖模型：邊、Edge-Pair、Path 需求與不可行需求 |
 | [GraphCoverageAnalysisTest.java](src/test/java/tw/edu/testing/GraphCoverageAnalysisTest.java) | 計算並驗證作業 2 三種涵蓋率皆為 100% |
 | [Homework2-3.md](docs/Homework2-3.md) | 作業 2、3 測試報告（另有瀏覽器版 `Homework2-3.html`） |
+| [1114_homework_report.docx](docs/1114_homework_report.docx) | 1114 作業測試報告 |
 | [pom.xml](pom.xml) | Maven 建置、套件版本與測試工具設定 |
 | [spec.md](spec.md) | 原始作業要求 |
 | [測試報告.docx](docs/測試報告.docx) | Word 測試報告 |
@@ -339,29 +344,31 @@ mvn "-Dmaven.repo.local=.m2" "-Dtest=PasswordValidatorTest#rejectsNull" test
 
 ## 1114 作業：課程報名與費用計算
 
-新增 `CourseRegistrationPolicy`，沿用既有 Java 21、JUnit、JaCoCo 與 PIT 設定；`pom.xml` 沒有修改。PasswordValidator 與原有九個測試保持遠端版本，包含方法名稱、輸入、預期結果及測試本文。AAA 命名與結構僅套用至新增的課程測試。
+新增受測程式 `CourseRegistrationPolicy` 與兩個測試類別，沿用既有 Java 21、JUnit、JaCoCo 與 PIT 設定；本作業沒有修改 `pom.xml`、`PasswordValidator` 及其測試。
 
-- `canEnroll`：以 while 迴圈檢查先修課程，再以 if 判斷三子句報名條件，八個組合案例。
-- `calculateFee`：以 for 迴圈逐位累加費用（團報第 2 位起每人折抵 20），人數及課程類別六個組合案例。
-- 完整套件共 23 個案例；目前 `reports/junit` 與 `reports/jacoco` 已包含新增課程案例及類別。PIT 的既有副本仍為密碼檢查器的歷史結果。
-- 四欄案例、各目標最少集合與分析：[1114 作業報告](docs/1114_homework_report.docx)；每個案例的執行與 JaCoCo 截圖位於 [docs/screenshots/1114](docs/screenshots/1114)。
+| 作業 | 受測方法 | 測試類別 | 案例數 | 最少案例與涵蓋率 |
+|---|---|---|---|---|
+| 4 Logical Expressions Coverage | `canEnroll` | `CourseRegistrationLogicTest` | 8（L1～L8） | Predicate 2、Clause 2、Combinatorial 8，皆 100% |
+| 5 Input Domain Characterization | `calculateFee` | `CourseRegistrationDomainTest` | 6（D1～D6） | Categorization 3、Combinatorial 6，皆 100% |
 
-```sh
-mvn test
+- `canEnroll`：以 while 迴圈檢查是否修過先修課程 Programming，再以 if 判斷三子句報名條件 (有名額 OR 有加簽許可) AND 已修先修課程。
+- `calculateFee`：標準課程每人 100、進階課程每人 200，以 for 迴圈逐位累加，團報第 2 位起每人折抵 20；人數小於等於 0 時收費 0。
+- JaCoCo：`CourseRegistrationPolicy` 行覆蓋率 22/22、分支覆蓋率 14/14。
+- 完整套件連同作業 1～3 共 41 個案例，全部通過：作業 1 九個、作業 2、3 十八個（含 `GraphCoverageAnalysisTest` 四個）、本作業十四個。
+- 四欄案例、各目標的最少案例集合與分析，見 [1114 作業報告](docs/1114_homework_report.docx)。
+
+```powershell
+# 執行全部測試，並檢查 JaCoCo 100% 行覆蓋率門檻
 mvn clean verify
-mvn org.pitest:pitest-maven:mutationCoverage
-```
 
-只執行新增案例：
-
-```sh
+# 只執行本作業的案例
 mvn "-Dtest=CourseRegistrationLogicTest,CourseRegistrationDomainTest" test
+
+# 只執行單一案例（L1）
+mvn "-Dtest=CourseRegistrationLogicTest#givenNoSeatAndNoOverrideAndUnmetPrerequisites_whenCanEnroll_thenFalse" test
 ```
 
-本機目錄已對齊 `origin/main` 的 Maven 結構。重新開啟專案時選擇包含 `pom.xml` 的根目錄，使用 Maven 匯入與 JDK 21；舊 Gradle 任務不再適用。
-
-`reports/junit` 保存 Maven Surefire 的執行結果：三個測試類別合計 23 個案例，皆無失敗、錯誤或跳過；重新執行時以 `target` 下的新結果為準。
-
+隨附的 `reports/junit` 是作業 2、3 合併前產生的副本，只含 `PasswordValidatorTest` 與兩個課程測試類別（共 23 個案例）；`reports/jacoco` 已包含 `CourseRegistrationPolicy`；`reports/pit` 仍為密碼檢查器的歷史結果。重新執行後以 `target` 下的新結果為準。
 
 ### 測試命名與 Arrange–Act–Assert
 
