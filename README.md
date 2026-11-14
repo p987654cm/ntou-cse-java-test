@@ -11,6 +11,7 @@
 - [第一次執行](#第一次執行)
 - [常用指令](#常用指令)
 - [只測指定案例](#只測指定案例)
+- [作業 2、3：Graph 與 Stress coverage](#作業-23graph-與-stress-coverage)
 - [怎麼看報告](#怎麼看報告)
 - [套件快取參數說明](#套件快取參數說明)
 - [專案檔案導覽](#專案檔案導覽)
@@ -49,7 +50,7 @@ boolean result = validator.isValid("abc0");            // result 為 true
 |---|---|---|
 | JDK 21 | Java 開發工具，包含編譯器與執行環境 | 編譯並執行 Java 程式 |
 | Maven 3.9 | 管理套件與建置流程 | 讀取 `pom.xml`，下載套件、編譯及執行測試 |
-| JUnit 5 | 檢查實際結果是否符合預期 | 執行 23 個測試案例 |
+| JUnit 5 | 檢查實際結果是否符合預期 | 執行 41 個測試 |
 | Surefire | Maven 的測試執行外掛 | 執行 JUnit 並產生結果報告 |
 | JaCoCo | 觀察哪些程式碼有被測到 | 產生行覆蓋率與分支覆蓋率報告 |
 | PIT | 刻意改動程式，看測試能否發現 | 進行變異測試（Mutation Testing） |
@@ -89,11 +90,9 @@ mvn test
 第一次需要連線下載套件，可能較久。完成後確認輸出包含：
 
 ```text
-Tests run: 23, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 41, Failures: 0, Errors: 0, Skipped: 0
 BUILD SUCCESS
 ```
-
-這表示原有 9 個密碼案例與新增 14 個課程案例全部執行，沒有失敗、錯誤或跳過。Maven 會自動編譯，不需要手動執行 `javac`。
 
 ### 4. 產生全部工具的報告
 
@@ -184,6 +183,30 @@ mvn "-Dtest=PasswordValidatorTest#rejectsNull" clean test jacoco:report
 
 `-Dtest` 是 Surefire 的 JUnit 篩選參數，不能用它來指定 PIT 只測同一個方法。PIT 依 `pom.xml` 的 `targetClasses` 與 `targetTests` 設定分析本專案。
 
+## 作業 2、3：Graph 與 Stress coverage
+
+11/7（碩專）繳交的作業 2 graph coverage 與作業 3 Stress Testing coverage，每個準則各自一個測試類別，受測程式與作業 1 相同、未修改。完整分析、VS Code 操作與 Demo 步驟見 [docs/Homework2-3.md](docs/Homework2-3.md)（瀏覽器版 `docs/Homework2-3.html`）。
+
+| 作業 | 測試類別 | 案例數 | 涵蓋率 |
+|---|---|---|---|
+| 2-1 Edge Coverage | `EdgeCoverageTest` | 3 | 17/17 條邊 |
+| 2-2 Edge-Pair Coverage | `EdgePairCoverageTest` | 3 | 19/19 項可行 Edge-Pair（不可行 2 項） |
+| 2-3 Path Coverage | `PathCoverageTest` | 3 | 5/5 項可行 Path（不可行 2 項） |
+| 3 Stress Testing Coverage | `StressCoverageTest` | 5 | 極小值、極大值與 3 種無效值（低於下限、超過上限、null） |
+
+JaCoCo 無法統計 Edge-Pair 與 Path，因此另以 `PasswordValidatorCfg`（控制流程圖模型）與 `GraphCoverageAnalysisTest` 計算三種 Graph coverage；任何需求未涵蓋時測試會失敗。
+
+```powershell
+# 各作業單獨執行並產生 JaCoCo 報告
+mvn "-Dtest=EdgeCoverageTest" clean test jacoco:report
+mvn "-Dtest=EdgePairCoverageTest" clean test jacoco:report
+mvn "-Dtest=PathCoverageTest" clean test jacoco:report
+mvn "-Dtest=StressCoverageTest" clean test jacoco:report
+
+# 印出每個案例的測試路徑與 Edge／Edge-Pair／Path 涵蓋率
+mvn "-Dtest=GraphCoverageAnalysisTest" test
+```
+
 ## 怎麼看報告
 
 ### 新報告與隨附副本
@@ -263,12 +286,21 @@ mvn "-Dmaven.repo.local=.m2" "-Dtest=PasswordValidatorTest#rejectsNull" test
 
 切換套件庫後，缺少的套件可能需要重新下載。此參數只對當次命令生效，不會永久修改設定，也不會改變報告的輸出位置。
 
+專案路徑含中文時，請不要使用此參數：JaCoCo agent 會位於專案內的 `.m2`，路徑中的中文傳給測試 JVM 時可能亂碼，導致 JaCoCo 報告無法產生。
+
 ## 專案檔案導覽
 
 | 路徑 | 內容 |
 |---|---|
 | [PasswordValidator.java](src/main/java/tw/edu/testing/PasswordValidator.java) | 受測程式，29 行，附逐行中文註解與 N1～N15 節點 |
 | [PasswordValidatorTest.java](src/test/java/tw/edu/testing/PasswordValidatorTest.java) | 九個 JUnit 案例，含輸入、預期結果與目標分析 |
+| [EdgeCoverageTest.java](src/test/java/tw/edu/testing/EdgeCoverageTest.java) | 作業 2-1 Edge coverage，3 個案例 |
+| [EdgePairCoverageTest.java](src/test/java/tw/edu/testing/EdgePairCoverageTest.java) | 作業 2-2 Edge-Pair coverage，3 個案例 |
+| [PathCoverageTest.java](src/test/java/tw/edu/testing/PathCoverageTest.java) | 作業 2-3 Path coverage，3 個案例 |
+| [StressCoverageTest.java](src/test/java/tw/edu/testing/StressCoverageTest.java) | 作業 3 Stress Testing coverage，5 個案例 |
+| [PasswordValidatorCfg.java](src/test/java/tw/edu/testing/PasswordValidatorCfg.java) | 控制流程圖模型：邊、Edge-Pair、Path 需求與不可行需求 |
+| [GraphCoverageAnalysisTest.java](src/test/java/tw/edu/testing/GraphCoverageAnalysisTest.java) | 計算並驗證作業 2 三種涵蓋率皆為 100% |
+| [Homework2-3.md](docs/Homework2-3.md) | 作業 2、3 測試報告（另有瀏覽器版 `Homework2-3.html`） |
 | [pom.xml](pom.xml) | Maven 建置、套件版本與測試工具設定 |
 | [spec.md](spec.md) | 原始作業要求 |
 | [測試報告.docx](docs/測試報告.docx) | Word 測試報告 |
@@ -301,6 +333,9 @@ mvn "-Dmaven.repo.local=.m2" "-Dtest=PasswordValidatorTest#rejectsNull" test
 
 `test` 會更新 JUnit 結果，但不會產生 JaCoCo HTML 或執行 PIT。請選用「常用指令」中的報告指令，並查看 `target` 下的新結果。
 
+**專案放在中文路徑，JaCoCo 顯示「Skipping JaCoCo execution due to missing execution data file」？**
+
+舊版 `pom.xml` 由 `jacoco:prepare-agent` 傳入絕對路徑，中文路徑傳給測試 JVM 時會亂碼，`jacoco.exec` 因此沒有產生，`verify` 的門檻也會被略過。目前 `pom.xml` 已改由 Surefire 以相對路徑 `target/jacoco.exec` 掛載 agent，不受專案路徑影響；若仍出現此訊息，請確認已取得最新的 `pom.xml`。
 
 ## 1114 作業：課程報名與費用計算
 

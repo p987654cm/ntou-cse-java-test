@@ -1,0 +1,1174 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graph 與 Stress 測試報告</title>
+<style>
+:root{--bg:#ffffff;--fg:#1f2328;--muted:#59636e;--line:#d1d9e0;--subtle:#f6f8fa;--accent:#0b5cad;--nav:#fafbfc;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1115;--fg:#e6e8eb;--muted:#9aa4af;--line:#30363d;--subtle:#161b22;--accent:#6cb6ff;--nav:#13161b;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1115;--fg:#e6e8eb;--muted:#9aa4af;--line:#30363d;--subtle:#161b22;--accent:#6cb6ff;--nav:#13161b;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.7 "Microsoft JhengHei","Noto Sans TC","PingFang TC",system-ui,sans-serif}
+nav{position:fixed;top:0;left:0;bottom:0;width:270px;overflow-y:auto;padding:24px 18px;background:var(--nav);border-right:1px solid var(--line)}
+nav .title{font-weight:700;margin:0 0 12px;font-size:15px}
+nav ol{margin:0;padding-left:0;list-style:none}
+nav li{margin:2px 0}
+nav a{display:block;padding:4px 8px;border-radius:4px;color:var(--fg);text-decoration:none;font-size:14px}
+nav a:hover,nav a.active{background:var(--subtle);color:var(--accent)}
+main{margin-left:270px;padding:32px 48px 80px;max-width:1080px}
+h1{font-size:28px;line-height:1.35;margin:0 0 16px}
+h2{font-size:22px;margin:48px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);scroll-margin-top:16px}
+h3{font-size:18px;margin:28px 0 8px;scroll-margin-top:16px}
+a{color:var(--accent)}
+hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14.5px;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
+th{background:var(--subtle)}
+code{font-family:Consolas,"Cascadia Mono",monospace;font-size:.9em;background:var(--subtle);padding:1px 5px;border-radius:4px}
+pre{background:var(--subtle);border:1px solid var(--line);border-radius:6px;padding:12px 14px;overflow-x:auto;line-height:1.5}
+pre code{background:none;padding:0;font-size:13px}
+figure.cfg{margin:16px 0;padding:12px;border:1px solid var(--line);border-radius:6px;max-width:600px}
+figure.cfg svg{width:100%;height:auto;display:block}
+figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:6px}
+.edges path{fill:none;stroke:var(--fg);stroke-width:1.6;marker-end:url(#arrow)}
+.edges path.back{stroke-dasharray:6 4}
+.arrowhead{fill:var(--fg)}
+.nodes circle{fill:var(--subtle);stroke:var(--fg);stroke-width:1.6}
+.nodes circle.inner{fill:none}
+.nids text{font:700 12px Consolas,monospace;fill:var(--fg)}
+.elabels text{font:600 12px Consolas,monospace;fill:var(--accent)}
+.stmts text{font:12px Consolas,monospace;fill:var(--muted)}
+@media (max-width:900px){nav{position:static;width:auto;border-right:0;border-bottom:1px solid var(--line)}main{margin-left:0;padding:20px 16px 60px}}
+@media print{nav{display:none}main{margin:0;max-width:none}}
+</style>
+</head>
+<body>
+<nav aria-label="目錄"><p class="title">目錄</p><ol><li><a href="#s1">1. 受測程式與控制流程圖</a></li><li><a href="#s7">2. 作業 2-1 Edge Coverage</a></li><li><a href="#s12">3. 作業 2-2 Edge-Pair Coverage</a></li><li><a href="#s18">4. 作業 2-3 Path Coverage</a></li><li><a href="#s24">5. 作業 3 Stress Testing Coverage</a></li><li><a href="#s33">6. 測試工具執行結果</a></li><li><a href="#s38">7. VS Code 環境建置與操作步驟</a></li><li><a href="#s43">8. Demo 步驟</a></li><li><a href="#s44">9. 修改檔案與影響範圍檢查</a></li><li><a href="#s48">10. 變更歷程</a></li></ol></nav>
+<main>
+<h1>密碼檢查器測試報告：Graph Coverage 與 Stress Testing Coverage</h1>
+<ul>
+<li>文件版本：v1.2.0</li>
+<li>最後更新時間：2026-11-09 14:46</li>
+<li>作者：Linda Huang</li>
+<li>對應作業：2) graph coverage（2-1 Edge、2-2 Edge-Pair、2-3 Path）、3) Stress Testing coverage，繳交日 11/7（碩專）</li>
+</ul>
+<h2 id="s1">1. 受測程式與控制流程圖</h2>
+<h3 id="s2">1.1 受測程式</h3>
+<p>受測程式沿用作業 1 的 <code>PasswordValidator.isValid</code>，程式內容與行號完全未修改。它同時具備作業規定的<strong>條件判斷式</strong>（<code>if</code>）與<strong>迴圈</strong>（<code>while</code>）。</p>
+<p>密碼規則：長度 4～6 個字元，且至少包含一個英文字母與一個數字；<code>null</code> 一律不合格。</p>
+<pre><code class="language-java">public boolean isValid(String password) {
+    if (password == null) {                                  // N1
+        return false;                                        // N2
+    }
+    if (password.length() &lt; 4 || password.length() &gt; 6) {   // N3
+        return false;                                        // N4
+    }
+    boolean hasLetter = false;                               // N5
+    boolean hasDigit = false;                                // N6
+    int index = 0;                                           // N7
+    while (index &lt; password.length()) {                      // N8
+        String character = password.substring(index, index + 1); // N9
+        if (character.matches(&quot;[A-Za-z]&quot;)) {                 // N10
+            hasLetter = true;                                // N11
+        }
+        if (character.matches(&quot;[0-9]&quot;)) {                    // N12
+            hasDigit = true;                                 // N13
+        }
+        index++;                                             // N14
+    }
+    return hasLetter &amp;&amp; hasDigit;                            // N15
+}
+</code></pre>
+<h3 id="s3">1.2 控制流程圖（CFG）</h3>
+<p>節點沿用 <code>docs/PasswordValidator-CFG.png</code> 的 N1～N15。起始節點為 N1，終點節點為 N2、N4、N15。邊依下表編號為 E1～E17，共 <strong>17 條邊</strong>。</p>
+
+<figure class="cfg">
+<svg viewBox="0 0 560 870" role="img" aria-label="PasswordValidator 控制流程圖，含 N1 至 N15 節點與 E1 至 E17 邊">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<g class="edges">
+<path d="M140,40 H398"/><path d="M120,60 V88"/><path d="M140,110 H398"/><path d="M120,130 V158"/>
+<path d="M120,200 V218"/><path d="M120,260 V278"/><path d="M120,320 V348"/><path d="M120,390 V418"/>
+<path d="M140,370 H398"/><path d="M120,460 V488"/><path d="M120,530 V558"/><path d="M100,510 H70 V650 H98"/>
+<path d="M120,600 V628"/><path d="M120,670 V698"/><path d="M140,650 H180 V790 H142"/><path d="M120,740 V768"/>
+<path class="back" d="M120,810 V840 H12 V370 H98"/>
+</g>
+<g class="elabels">
+<text x="270" y="32" text-anchor="middle">E1 T</text><text x="108" y="79" text-anchor="end">E2 F</text>
+<text x="270" y="102" text-anchor="middle">E3 T</text><text x="108" y="149" text-anchor="end">E4 F</text>
+<text x="108" y="214" text-anchor="end">E5</text><text x="108" y="274" text-anchor="end">E6</text>
+<text x="108" y="339" text-anchor="end">E7</text><text x="108" y="409" text-anchor="end">E8 T</text>
+<text x="270" y="362" text-anchor="middle">E9 F</text><text x="108" y="479" text-anchor="end">E10</text>
+<text x="108" y="549" text-anchor="end">E11 T</text><text x="62" y="585" text-anchor="end">E12 F</text>
+<text x="108" y="619" text-anchor="end">E13</text><text x="108" y="689" text-anchor="end">E14 T</text>
+<text x="186" y="700">E15 F</text><text x="108" y="759" text-anchor="end">E16</text>
+<text x="66" y="858" text-anchor="middle">E17 迴圈繞回</text>
+</g>
+<g class="nodes">
+<circle cx="120" cy="40" r="20"/><circle cx="120" cy="110" r="20"/><circle cx="120" cy="180" r="20"/>
+<circle cx="120" cy="240" r="20"/><circle cx="120" cy="300" r="20"/><circle cx="120" cy="370" r="20"/>
+<circle cx="120" cy="440" r="20"/><circle cx="120" cy="510" r="20"/><circle cx="120" cy="580" r="20"/>
+<circle cx="120" cy="650" r="20"/><circle cx="120" cy="720" r="20"/><circle cx="120" cy="790" r="20"/>
+<circle cx="420" cy="40" r="20"/><circle class="inner" cx="420" cy="40" r="16"/>
+<circle cx="420" cy="110" r="20"/><circle class="inner" cx="420" cy="110" r="16"/>
+<circle cx="420" cy="370" r="20"/><circle class="inner" cx="420" cy="370" r="16"/>
+</g>
+<g class="nids" text-anchor="middle">
+<text x="120" y="44">N1</text><text x="120" y="114">N3</text><text x="120" y="184">N5</text>
+<text x="120" y="244">N6</text><text x="120" y="304">N7</text><text x="120" y="374">N8</text>
+<text x="120" y="444">N9</text><text x="120" y="514">N10</text><text x="120" y="584">N11</text>
+<text x="120" y="654">N12</text><text x="120" y="724">N13</text><text x="120" y="794">N14</text>
+<text x="420" y="44">N2</text><text x="420" y="114">N4</text><text x="420" y="374">N15</text>
+</g>
+<g class="stmts">
+<text x="150" y="66">password == null</text><text x="150" y="136">length &lt; 4 || length &gt; 6</text>
+<text x="448" y="44">return false</text><text x="448" y="114">return false</text>
+<text x="150" y="185">hasLetter = false</text><text x="150" y="245">hasDigit = false</text>
+<text x="150" y="305">index = 0</text><text x="150" y="400">index &lt; length()</text>
+<text x="420" y="410" text-anchor="middle">return hasLetter &amp;&amp; hasDigit</text>
+<text x="150" y="445">character = substring(index, index + 1)</text>
+<text x="150" y="515">matches("[A-Za-z]")</text><text x="150" y="585">hasLetter = true</text>
+<text x="195" y="655">matches("[0-9]")</text><text x="195" y="728">hasDigit = true</text>
+<text x="195" y="795">index++</text>
+</g>
+</svg>
+<figcaption>PasswordValidator 控制流程圖：雙圈為終點節點，T／F 為判斷式成立／不成立</figcaption>
+</figure>
+
+<table>
+<thead>
+<tr>
+<th>邊</th>
+<th>起點 → 終點</th>
+<th>條件</th>
+<th>說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>E1</td>
+<td>N1 → N2</td>
+<td>T</td>
+<td><code>password == null</code> 成立</td>
+</tr>
+<tr>
+<td>E2</td>
+<td>N1 → N3</td>
+<td>F</td>
+<td>有提供密碼</td>
+</tr>
+<tr>
+<td>E3</td>
+<td>N3 → N4</td>
+<td>T</td>
+<td>長度小於 4 或大於 6</td>
+</tr>
+<tr>
+<td>E4</td>
+<td>N3 → N5</td>
+<td>F</td>
+<td>長度為 4～6</td>
+</tr>
+<tr>
+<td>E5</td>
+<td>N5 → N6</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>E6</td>
+<td>N6 → N7</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>E7</td>
+<td>N7 → N8</td>
+<td></td>
+<td>第一次進入迴圈判斷</td>
+</tr>
+<tr>
+<td>E8</td>
+<td>N8 → N9</td>
+<td>T</td>
+<td>尚未檢查完所有字元，進入迴圈主體</td>
+</tr>
+<tr>
+<td>E9</td>
+<td>N8 → N15</td>
+<td>F</td>
+<td>全部字元檢查完畢，離開迴圈</td>
+</tr>
+<tr>
+<td>E10</td>
+<td>N9 → N10</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>E11</td>
+<td>N10 → N11</td>
+<td>T</td>
+<td>目前字元是英文字母</td>
+</tr>
+<tr>
+<td>E12</td>
+<td>N10 → N12</td>
+<td>F</td>
+<td>目前字元不是英文字母</td>
+</tr>
+<tr>
+<td>E13</td>
+<td>N11 → N12</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>E14</td>
+<td>N12 → N13</td>
+<td>T</td>
+<td>目前字元是數字</td>
+</tr>
+<tr>
+<td>E15</td>
+<td>N12 → N14</td>
+<td>F</td>
+<td>目前字元不是數字</td>
+</tr>
+<tr>
+<td>E16</td>
+<td>N13 → N14</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>E17</td>
+<td>N14 → N8</td>
+<td></td>
+<td>迴圈繞回（back edge）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="s4">1.3 迴圈主體的三條內部路徑</h3>
+<p>每處理一個字元，迴圈會從 N8 繞一圈回到 N8。依字元種類只有三種可行走法，後續章節以代號表示：</p>
+<table>
+<thead>
+<tr>
+<th>代號</th>
+<th>字元種類</th>
+<th>迴圈一圈的路徑</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>L</td>
+<td>英文字母</td>
+<td>N8 N9 N10 N11 N12 N14 N8</td>
+</tr>
+<tr>
+<td>D</td>
+<td>數字</td>
+<td>N8 N9 N10 N12 N13 N14 N8</td>
+</tr>
+<tr>
+<td>O</td>
+<td>其他字元</td>
+<td>N8 N9 N10 N12 N14 N8</td>
+</tr>
+</tbody>
+</table>
+<h3 id="s5">1.4 不可行的測試需求</h3>
+<p>以下兩種走法在程式邏輯上不可能發生，屬於不可行（infeasible）測試需求，不列入涵蓋率分母：</p>
+<table>
+<thead>
+<tr>
+<th>不可行的走法</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>N7 → N8 → N15（迴圈 0 次）</td>
+<td>能走到 N7 代表長度已通過 4～6 的檢查，第一次判斷 N8 必定成立</td>
+</tr>
+<tr>
+<td>N11 → N12 → N13（同一圈既是英文又是數字）</td>
+<td>同一個字元不可能同時符合 <code>[A-Za-z]</code> 與 <code>[0-9]</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="s6">1.5 最少測試案例數的下限</h3>
+<p>任何一條完整測試路徑只會停在 N2、N4、N15 其中一個終點。Graph coverage 三種準則都要求走過 E1（停在 N2）、E3（停在 N4）與 E9（停在 N15），因此<strong>至少需要 3 個測試案例</strong>。以下三種準則都以 3 個案例達到 100%，即為最少案例數。</p>
+<hr />
+<h2 id="s7">2. 作業 2-1 Edge Coverage</h2>
+<p>測試目標：Edge coverage
+總共 Edges：E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 E14 E15 E16 E17（共 17 條）
+JUnit 類別：<code>src/test/java/tw/edu/testing/EdgeCoverageTest.java</code></p>
+<h3 id="s8">test case 1（測試案例 EC1）</h3>
+<ol>
+<li>Input values（測試時候需要控制資料的值）：<code>password = null</code></li>
+<li>expected result（正確的結果）：<code>false</code></li>
+<li>test program's result（程式執行後的結果）：<code>false</code></li>
+<li>criteria analysis（測試目標的分析）<ul>
+<li>測試路徑：N1 N2</li>
+<li>Edge coverage：測試案例涵蓋的 Edges：E1</li>
+</ul>
+</li>
+</ol>
+<h3 id="s9">test case 2（測試案例 EC2）</h3>
+<ol>
+<li>Input values（測試時候需要控制資料的值）：<code>password = "a1b"</code></li>
+<li>expected result（正確的結果）：<code>false</code></li>
+<li>test program's result（程式執行後的結果）：<code>false</code></li>
+<li>criteria analysis（測試目標的分析）<ul>
+<li>測試路徑：N1 N3 N4</li>
+<li>Edge coverage：測試案例涵蓋的 Edges：E2, E3</li>
+</ul>
+</li>
+</ol>
+<h3 id="s10">test case 3（測試案例 EC3）</h3>
+<ol>
+<li>Input values（測試時候需要控制資料的值）：<code>password = "abc0"</code></li>
+<li>expected result（正確的結果）：<code>true</code></li>
+<li>test program's result（程式執行後的結果）：<code>true</code></li>
+<li>criteria analysis（測試目標的分析）<ul>
+<li>測試路徑：N1 N3 N5 N6 N7 [L]（a）[L]（b）[L]（c）[D]（0）N15</li>
+<li>Edge coverage：測試案例涵蓋的 Edges：E2, E4, E5, E6, E7, E8, E9, E10, E11, E12, E13, E14, E15, E16, E17</li>
+<li>英文字母走 E11、E13、E15；數字 0 走 E12、E14、E16；最後由 E9 離開迴圈。</li>
+</ul>
+</li>
+</ol>
+<h3 id="s11">結果</h3>
+<p>最少個案例為 3 個案例，總共涵蓋 Edges：E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 E14 E15 E16 E17</p>
+<p><strong>Edge coverage：17/17 = 100%</strong></p>
+<hr />
+<h2 id="s12">3. 作業 2-2 Edge-Pair Coverage</h2>
+<p>測試目標：Edge-Pair coverage（每一組連續兩條邊，即長度 2 的路徑，都要被走過）
+JUnit 類別：<code>src/test/java/tw/edu/testing/EdgePairCoverageTest.java</code></p>
+<h3 id="s13">3.1 測試需求</h3>
+<p>N1 → N2 無法延伸成長度 2 的路徑，依定義以該邊本身列為需求。總共 21 項，不可行 2 項，可行 <strong>19 項</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>編號</th>
+<th>Edge-Pair</th>
+<th>涵蓋的測試案例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>[N1 N2]</td>
+<td>EP1</td>
+</tr>
+<tr>
+<td>2</td>
+<td>[N1 N3 N4]</td>
+<td>EP2</td>
+</tr>
+<tr>
+<td>3</td>
+<td>[N1 N3 N5]</td>
+<td>EP3</td>
+</tr>
+<tr>
+<td>4</td>
+<td>[N3 N5 N6]</td>
+<td>EP3</td>
+</tr>
+<tr>
+<td>5</td>
+<td>[N5 N6 N7]</td>
+<td>EP3</td>
+</tr>
+<tr>
+<td>6</td>
+<td>[N6 N7 N8]</td>
+<td>EP3</td>
+</tr>
+<tr>
+<td>7</td>
+<td>[N7 N8 N9]</td>
+<td>EP3</td>
+</tr>
+<tr>
+<td>8</td>
+<td>[N7 N8 N15]</td>
+<td>不可行（迴圈 0 次）</td>
+</tr>
+<tr>
+<td>9</td>
+<td>[N8 N9 N10]</td>
+<td>EP3</td>
+</tr>
+<tr>
+<td>10</td>
+<td>[N9 N10 N11]</td>
+<td>EP3</td>
+</tr>
+<tr>
+<td>11</td>
+<td>[N9 N10 N12]</td>
+<td>EP3</td>
+</tr>
+<tr>
+<td>12</td>
+<td>[N10 N11 N12]</td>
+<td>EP3</td>
+</tr>
+<tr>
+<td>13</td>
+<td>[N10 N12 N13]</td>
+<td>EP3</td>
+</tr>
+<tr>
+<td>14</td>
+<td>[N10 N12 N14]</td>
+<td>EP3</td>
+</tr>
+<tr>
+<td>15</td>
+<td>[N11 N12 N13]</td>
+<td>不可行（同一字元既是英文又是數字）</td>
+</tr>
+<tr>
+<td>16</td>
+<td>[N11 N12 N14]</td>
+<td>EP3</td>
+</tr>
+<tr>
+<td>17</td>
+<td>[N12 N13 N14]</td>
+<td>EP3</td>
+</tr>
+<tr>
+<td>18</td>
+<td>[N12 N14 N8]</td>
+<td>EP3</td>
+</tr>
+<tr>
+<td>19</td>
+<td>[N13 N14 N8]</td>
+<td>EP3</td>
+</tr>
+<tr>
+<td>20</td>
+<td>[N14 N8 N9]</td>
+<td>EP3</td>
+</tr>
+<tr>
+<td>21</td>
+<td>[N14 N8 N15]</td>
+<td>EP3</td>
+</tr>
+</tbody>
+</table>
+<p>與 Edge coverage 的差異：第 14 項 [N10 N12 N14] 必須有一個「既不是英文也不是數字」的字元才走得到，EC3 的 <code>"abc0"</code> 沒有涵蓋，因此 EP3 改用含特殊符號的 <code>"ab1!"</code>。</p>
+<h3 id="s14">test case 1（測試案例 EP1）</h3>
+<ol>
+<li>Input values（測試時候需要控制資料的值）：<code>password = null</code></li>
+<li>expected result（正確的結果）：<code>false</code></li>
+<li>test program's result（程式執行後的結果）：<code>false</code></li>
+<li>criteria analysis（測試目標的分析）<ul>
+<li>測試路徑：N1 N2</li>
+<li>Edge-Pair coverage：測試案例涵蓋的 Edge-Pairs：[N1 N2]</li>
+</ul>
+</li>
+</ol>
+<h3 id="s15">test case 2（測試案例 EP2）</h3>
+<ol>
+<li>Input values（測試時候需要控制資料的值）：<code>password = "a1b"</code></li>
+<li>expected result（正確的結果）：<code>false</code></li>
+<li>test program's result（程式執行後的結果）：<code>false</code></li>
+<li>criteria analysis（測試目標的分析）<ul>
+<li>測試路徑：N1 N3 N4</li>
+<li>Edge-Pair coverage：測試案例涵蓋的 Edge-Pairs：[N1 N3 N4]</li>
+</ul>
+</li>
+</ol>
+<h3 id="s16">test case 3（測試案例 EP3）</h3>
+<ol>
+<li>Input values（測試時候需要控制資料的值）：<code>password = "ab1!"</code></li>
+<li>expected result（正確的結果）：<code>true</code></li>
+<li>test program's result（程式執行後的結果）：<code>true</code></li>
+<li>criteria analysis（測試目標的分析）<ul>
+<li>測試路徑：N1 N3 N5 N6 N7 [L]（a）[L]（b）[D]（1）[O]（!）N15</li>
+<li>Edge-Pair coverage：測試案例涵蓋的 Edge-Pairs：第 3～7、9～14、16～21 項，共 17 項</li>
+<li>兩個英文字母相連，走到 [N12 N14 N8] 與 [N14 N8 N9]；數字走到 [N10 N12 N13]、[N13 N14 N8]；特殊符號走到 [N10 N12 N14]。</li>
+</ul>
+</li>
+</ol>
+<h3 id="s17">結果</h3>
+<p>最少個案例為 3 個案例，總共涵蓋 19 項可行 Edge-Pairs（不可行 2 項：[N7 N8 N15]、[N11 N12 N13]）</p>
+<p><strong>Edge-Pair coverage：19/19 = 100%</strong></p>
+<hr />
+<h2 id="s18">4. 作業 2-3 Path Coverage</h2>
+<p>測試目標：Path coverage，分為 (1) 沒繞過迴圈、(2) 有繞過迴圈兩類
+JUnit 類別：<code>src/test/java/tw/edu/testing/PathCoverageTest.java</code></p>
+<h3 id="s19">4.1 測試需求</h3>
+<table>
+<thead>
+<tr>
+<th>分類</th>
+<th>編號</th>
+<th>Path</th>
+<th>可行性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>(1) 沒繞過迴圈：不經過 back edge E17 的完整路徑</td>
+<td>P1</td>
+<td>N1 N2</td>
+<td>可行</td>
+</tr>
+<tr>
+<td></td>
+<td>P2</td>
+<td>N1 N3 N4</td>
+<td>可行</td>
+</tr>
+<tr>
+<td></td>
+<td>P3</td>
+<td>N1 N3 N5 N6 N7 N8 N15</td>
+<td>不可行（迴圈 0 次）</td>
+</tr>
+<tr>
+<td>(2) 有繞過迴圈：迴圈主體每一條內部路徑都要繞回 N8</td>
+<td>P4</td>
+<td>N8 N9 N10 N11 N12 N14 N8（L）</td>
+<td>可行</td>
+</tr>
+<tr>
+<td></td>
+<td>P5</td>
+<td>N8 N9 N10 N12 N13 N14 N8（D）</td>
+<td>可行</td>
+</tr>
+<tr>
+<td></td>
+<td>P6</td>
+<td>N8 N9 N10 N12 N14 N8（O）</td>
+<td>可行</td>
+</tr>
+<tr>
+<td></td>
+<td>P7</td>
+<td>N8 N9 N10 N11 N12 N13 N14 N8</td>
+<td>不可行（同一字元既是英文又是數字）</td>
+</tr>
+</tbody>
+</table>
+<p>總共 7 項，不可行 2 項，可行 <strong>5 項</strong>。</p>
+<p>說明：迴圈每圈有 3 種走法、可執行 4～6 圈，完整路徑共有 3⁴ + 3⁵ + 3⁶ = 1,053 條，無法逐條測試。因此第 (2) 類以「每一條迴圈內部路徑都至少繞回一次」作為測試需求，與投影片 p.36 範例的 Test Paths（125 沒繞過迴圈；1232325 有繞過迴圈）分類方式相同。</p>
+<h3 id="s20">test case 1（測試案例 PC1）</h3>
+<ol>
+<li>Input values（測試時候需要控制資料的值）：<code>password = null</code></li>
+<li>expected result（正確的結果）：<code>false</code></li>
+<li>test program's result（程式執行後的結果）：<code>false</code></li>
+<li>criteria analysis（測試目標的分析）<ul>
+<li>Path coverage (1) 沒繞過迴圈：測試案例涵蓋的 Path：P1 = N1 N2</li>
+</ul>
+</li>
+</ol>
+<h3 id="s21">test case 2（測試案例 PC2）</h3>
+<ol>
+<li>Input values（測試時候需要控制資料的值）：<code>password = "a1b"</code></li>
+<li>expected result（正確的結果）：<code>false</code></li>
+<li>test program's result（程式執行後的結果）：<code>false</code></li>
+<li>criteria analysis（測試目標的分析）<ul>
+<li>Path coverage (1) 沒繞過迴圈：測試案例涵蓋的 Path：P2 = N1 N3 N4</li>
+</ul>
+</li>
+</ol>
+<h3 id="s22">test case 3（測試案例 PC3）</h3>
+<ol>
+<li>Input values（測試時候需要控制資料的值）：<code>password = "ab1!"</code></li>
+<li>expected result（正確的結果）：<code>true</code></li>
+<li>test program's result（程式執行後的結果）：<code>true</code></li>
+<li>criteria analysis（測試目標的分析）<ul>
+<li>測試路徑：N1 N3 N5 N6 N7 N8 N9 N10 N11 N12 N14 N8 N9 N10 N11 N12 N14 N8 N9 N10 N12 N13 N14 N8 N9 N10 N12 N14 N8 N15</li>
+<li>Path coverage (2) 有繞過迴圈：測試案例涵蓋的 Paths：P4（a、b）、P5（1）、P6（!），迴圈繞 4 圈後由 E9 離開</li>
+</ul>
+</li>
+</ol>
+<h3 id="s23">結果</h3>
+<p>最少個案例為 3 個案例，總共涵蓋 Paths：P1 P2 P4 P5 P6（不可行 2 項：P3、P7）</p>
+<p><strong>Path coverage：5/5 = 100%</strong></p>
+<hr />
+<h2 id="s24">5. 作業 3 Stress Testing Coverage</h2>
+<p>依 Testing-Introduction.ppt p.50：測試軟體預期輸入範圍的極限，包含非常大或非常小的值、非常長的字串與空字串、Null 參照，以及無效值。</p>
+<h3 id="s25">5.1 資料的有效範圍</h3>
+<table>
+<thead>
+<tr>
+<th>資料</th>
+<th>有效範圍</th>
+<th>說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>密碼字串長度</td>
+<td>4～6 個字元</td>
+<td><code>isValid</code> 的長度規則（N3）</td>
+</tr>
+<tr>
+<td>資料筆數</td>
+<td>4～6 筆</td>
+<td>迴圈（N8～N14）每次處理一個字元，字元即資料筆數</td>
+</tr>
+<tr>
+<td>密碼內容</td>
+<td>至少一個英文字母與一個數字</td>
+<td>極值案例皆使用內容合格的字串，只測試長度極限</td>
+</tr>
+</tbody>
+</table>
+<h3 id="s26">5.2 測試需求</h3>
+<table>
+<thead>
+<tr>
+<th>編號</th>
+<th>類別</th>
+<th>測試需求</th>
+<th>測試案例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>有效範圍內極小值</td>
+<td>長度 4（迴圈最少 4 筆）</td>
+<td>ST1</td>
+</tr>
+<tr>
+<td>2</td>
+<td>有效範圍內極大值</td>
+<td>長度 6（迴圈最多 6 筆）</td>
+<td>ST2</td>
+</tr>
+<tr>
+<td>3</td>
+<td>無效值</td>
+<td>低於下限：長度 3（下限減 1）</td>
+<td>ST3</td>
+</tr>
+<tr>
+<td>4</td>
+<td>無效值</td>
+<td>超過上限：長度 7（上限加 1）</td>
+<td>ST4</td>
+</tr>
+<tr>
+<td>5</td>
+<td>無效值</td>
+<td>Null 參照（不是字串）</td>
+<td>ST5</td>
+</tr>
+</tbody>
+</table>
+<p>每一項需求是不同的輸入值，一個測試案例只能提供一個值，因此 5 個案例即為最少案例數。</p>
+<p>投影片列出的空字串（長度 0）與非常長的字串，分別與長度 3、長度 7 屬於同一種無效值：都在 N3 判定長度不合格，走相同路徑 N1 N3 N4、得到相同結果 <code>false</code>，因此不另增測試案例。</p>
+<p>JUnit 類別：<code>src/test/java/tw/edu/testing/StressCoverageTest.java</code></p>
+<h3 id="s27">test case 1（測試案例 ST1：有效範圍內極小值）</h3>
+<ol>
+<li>Input values（測試時候需要控制資料的值）：<code>password = "abc0"</code>（長度 4）</li>
+<li>expected result（正確的結果）：<code>true</code></li>
+<li>test program's result（程式執行後的結果）：<code>true</code></li>
+<li>criteria analysis（測試目標的分析）：有效範圍 4～6 的極小值 4，迴圈執行最少的 4 次</li>
+</ol>
+<h3 id="s28">test case 2（測試案例 ST2：有效範圍內極大值）</h3>
+<ol>
+<li>Input values（測試時候需要控制資料的值）：<code>password = "A00000"</code>（長度 6）</li>
+<li>expected result（正確的結果）：<code>true</code></li>
+<li>test program's result（程式執行後的結果）：<code>true</code></li>
+<li>criteria analysis（測試目標的分析）：有效範圍 4～6 的極大值 6，迴圈執行最多的 6 次</li>
+</ol>
+<h3 id="s29">test case 3（測試案例 ST3：無效值 低於下限）</h3>
+<ol>
+<li>Input values（測試時候需要控制資料的值）：<code>password = "a1b"</code>（長度 3）</li>
+<li>expected result（正確的結果）：<code>false</code></li>
+<li>test program's result（程式執行後的結果）：<code>false</code></li>
+<li>criteria analysis（測試目標的分析）：無效值 長度 3（下限 4 減 1），內容雖有英文和數字仍不合格</li>
+</ol>
+<h3 id="s30">test case 4（測試案例 ST4：無效值 超過上限）</h3>
+<ol>
+<li>Input values（測試時候需要控制資料的值）：<code>password = "abc1234"</code>（長度 7）</li>
+<li>expected result（正確的結果）：<code>false</code></li>
+<li>test program's result（程式執行後的結果）：<code>false</code></li>
+<li>criteria analysis（測試目標的分析）：無效值 長度 7（上限 6 加 1），內容雖有英文和數字仍不合格</li>
+</ol>
+<h3 id="s31">test case 5（測試案例 ST5：無效值 Null）</h3>
+<ol>
+<li>Input values（測試時候需要控制資料的值）：<code>password = null</code></li>
+<li>expected result（正確的結果）：<code>false</code>，且不拋出 <code>NullPointerException</code></li>
+<li>test program's result（程式執行後的結果）：<code>false</code></li>
+<li>criteria analysis（測試目標的分析）：無效值 null，程式在 N1 就結束，不會讀取長度</li>
+</ol>
+<h3 id="s32">結果</h3>
+<p>最少個案例為 5 個案例，涵蓋有效範圍極小值、極大值及 3 種無效值</p>
+<p><strong>Stress Testing coverage：5/5 = 100%</strong></p>
+<hr />
+<h2 id="s33">6. 測試工具執行結果</h2>
+<p>以下為 2026-11-09 執行 <code>mvn clean verify org.pitest:pitest-maven:mutationCoverage</code> 的結果（<code>reports/</code> 報告副本維持作業 1 版本，最新結果以 <code>target/</code> 重新產生為準）。</p>
+<h3 id="s34">6.1 JUnit</h3>
+<table>
+<thead>
+<tr>
+<th>測試類別</th>
+<th>對應作業</th>
+<th>案例數</th>
+<th>結果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PasswordValidatorTest</code></td>
+<td>作業 1 Line coverage</td>
+<td>9</td>
+<td>全部通過</td>
+</tr>
+<tr>
+<td><code>EdgeCoverageTest</code></td>
+<td>作業 2-1</td>
+<td>3</td>
+<td>全部通過</td>
+</tr>
+<tr>
+<td><code>EdgePairCoverageTest</code></td>
+<td>作業 2-2</td>
+<td>3</td>
+<td>全部通過</td>
+</tr>
+<tr>
+<td><code>PathCoverageTest</code></td>
+<td>作業 2-3</td>
+<td>3</td>
+<td>全部通過</td>
+</tr>
+<tr>
+<td><code>StressCoverageTest</code></td>
+<td>作業 3</td>
+<td>5</td>
+<td>全部通過</td>
+</tr>
+<tr>
+<td><code>GraphCoverageAnalysisTest</code></td>
+<td>作業 2 涵蓋率計算（非受測案例）</td>
+<td>4</td>
+<td>全部通過</td>
+</tr>
+<tr>
+<td>合計</td>
+<td></td>
+<td>27</td>
+<td>Failures 0、Errors 0、Skipped 0</td>
+</tr>
+</tbody>
+</table>
+<h3 id="s35">6.2 Graph coverage 涵蓋率計算</h3>
+<p>JaCoCo 只統計 Line 與 Branch，無法統計 Edge-Pair 與 Path。因此新增 <code>PasswordValidatorCfg</code>（CFG 模型）與 <code>GraphCoverageAnalysisTest</code>，由 CFG 推導每個輸入的測試路徑並計算涵蓋率；若有任何需求未涵蓋，測試會失敗。執行 <code>mvn "-Dtest=GraphCoverageAnalysisTest" test</code> 的輸出：</p>
+<pre><code class="language-text">[Edge] null -&gt; N1 N2
+[Edge] &quot;a1b&quot; -&gt; N1 N3 N4
+[Edge] &quot;abc0&quot; -&gt; N1 N3 N5 N6 N7 N8 N9 N10 N11 N12 N14 N8 N9 N10 N11 N12 N14 N8 N9 N10 N11 N12 N14 N8 N9 N10 N12 N13 N14 N8 N15
+Edge coverage: 17/17 = 100%
+
+[Edge-Pair] null -&gt; N1 N2
+[Edge-Pair] &quot;a1b&quot; -&gt; N1 N3 N4
+[Edge-Pair] &quot;ab1!&quot; -&gt; N1 N3 N5 N6 N7 N8 N9 N10 N11 N12 N14 N8 N9 N10 N11 N12 N14 N8 N9 N10 N12 N13 N14 N8 N9 N10 N12 N14 N8 N15
+Edge-Pair coverage: 19/19 (feasible) = 100%, infeasible: 2
+
+[Path] null -&gt; N1 N2
+[Path] &quot;a1b&quot; -&gt; N1 N3 N4
+[Path] &quot;ab1!&quot; -&gt; N1 N3 N5 N6 N7 N8 N9 N10 N11 N12 N14 N8 N9 N10 N11 N12 N14 N8 N9 N10 N12 N13 N14 N8 N9 N10 N12 N14 N8 N15
+Path coverage: 5/5 (feasible) = 100%, infeasible: 2
+</code></pre>
+<h3 id="s36">6.3 JaCoCo（各作業單獨執行）</h3>
+<table>
+<thead>
+<tr>
+<th>測試類別</th>
+<th>Line coverage</th>
+<th>Branch coverage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>EdgeCoverageTest</code></td>
+<td>17/17（100%）</td>
+<td>13/16</td>
+</tr>
+<tr>
+<td><code>EdgePairCoverageTest</code></td>
+<td>17/17（100%）</td>
+<td>13/16</td>
+</tr>
+<tr>
+<td><code>PathCoverageTest</code></td>
+<td>17/17（100%）</td>
+<td>13/16</td>
+</tr>
+<tr>
+<td><code>StressCoverageTest</code></td>
+<td>17/17（100%）</td>
+<td>14/16</td>
+</tr>
+<tr>
+<td>全部 27 個測試</td>
+<td>17/17（100%）</td>
+<td>16/16</td>
+</tr>
+</tbody>
+</table>
+<p>JaCoCo 的 Branch 以位元碼的「子條件」計算：第 10 行 <code>length &lt; 4 || length &gt; 6</code> 有 4 個分支，第 27 行 <code>hasLetter &amp;&amp; hasDigit</code> 有 4 個分支。CFG 把這兩個複合條件各視為一個節點（N3、N15），因此 Edge coverage 100% 時 JaCoCo Branch 仍可能未滿，未涵蓋的分支是 <code>length &gt; 6</code> 成立、<code>hasLetter</code> 為 false、<code>hasDigit</code> 為 false，屬於作業 4 Logical Expressions coverage（Clause coverage）的範圍，不影響本次 Graph coverage 結論。</p>
+<h3 id="s37">6.4 PIT</h3>
+<p>16 個變異全部 KILLED（100%），Line Coverage 17/17。作業 1 的 9 個案例含「只有英文」「只有數字」等輸入，可偵測條件反轉與回傳值變異。</p>
+<hr />
+<h2 id="s38">7. VS Code 環境建置與操作步驟</h2>
+<h3 id="s39">7.1 本機已完成的環境建置</h3>
+<table>
+<thead>
+<tr>
+<th>項目</th>
+<th>版本</th>
+<th>位置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JDK（Eclipse Temurin）</td>
+<td>21.0.12.1+1</td>
+<td><code>C:\Users\linda.huang\tools\jdk-21.0.12.1+1</code></td>
+</tr>
+<tr>
+<td>Maven</td>
+<td>3.9.9</td>
+<td><code>C:\Users\linda.huang\tools\apache-maven-3.9.9</code></td>
+</tr>
+<tr>
+<td>使用者環境變數</td>
+<td><code>JAVA_HOME</code>、<code>MAVEN_HOME</code>，並將兩者的 <code>bin</code> 加入 <code>Path</code></td>
+<td>Windows 使用者層級</td>
+</tr>
+<tr>
+<td>VS Code 擴充套件</td>
+<td>Extension Pack for Java（含 Language Support for Java、Test Runner for Java、Maven for Java、Debugger for Java）</td>
+<td>VS Code</td>
+</tr>
+<tr>
+<td>VS Code 工作區設定</td>
+<td><code>.vscode/settings.json</code>（指定 JDK、Maven）、<code>.vscode/tasks.json</code>（Demo 工作）</td>
+<td>專案根目錄，已被 <code>.gitignore</code> 排除，只存在本機</td>
+</tr>
+</tbody>
+</table>
+<p>JDK 與 Maven 採可攜版安裝於使用者目錄，不需要系統管理員權限。其他套件（JUnit 5、JaCoCo、PIT）由 Maven 依 <code>pom.xml</code> 自動下載。</p>
+<h3 id="s40">7.2 在其他電腦重新建置環境</h3>
+<ol>
+<li>下載 JDK 21（https://adoptium.net/）與 Maven 3.9（https://maven.apache.org/download.cgi）的 zip，解壓縮到任一資料夾。</li>
+<li>Windows 搜尋「編輯您帳戶的環境變數」，新增 <code>JAVA_HOME</code> 指向 JDK 資料夾（不含 <code>bin</code>），並在 <code>Path</code> 加入 <code>%JAVA_HOME%\bin</code> 與 Maven 的 <code>bin</code>。</li>
+<li>重新開啟 VS Code，在終端機執行 <code>java -version</code>、<code>mvn -version</code>，確認都顯示 21 與 3.9.x。</li>
+<li>VS Code 左側「延伸模組」搜尋 <strong>Extension Pack for Java</strong> 並安裝。</li>
+<li>從 GitHub 取得專案：<code>git clone https://github.com/p987654cm/ntou-cse-java-test.git</code>。</li>
+</ol>
+<h3 id="s41">7.3 VS Code 操作步驟</h3>
+<ol>
+<li><strong>開啟專案</strong>：VS Code「檔案 → 開啟資料夾」，選擇包含 <code>pom.xml</code> 的 <code>ntou-cse-java-test-main</code> 資料夾。</li>
+<li><strong>等待 Java 載入</strong>：右下角狀態列顯示 Java 載入完成（大括號圖示不再轉動），左側「Explorer」下方出現「JAVA PROJECTS」與「MAVEN」。</li>
+<li><strong>開啟終端機</strong>：按 <code>Ctrl+`</code>，確認目前目錄為專案根目錄。</li>
+<li><strong>執行全部測試</strong>：輸入 <code>mvn test</code>，確認 <code>Tests run: 27, Failures: 0, Errors: 0, Skipped: 0</code> 與 <code>BUILD SUCCESS</code>。</li>
+<li><strong>用測試面板執行</strong>：點左側燒杯圖示「Testing」，展開 <code>tw.edu.testing</code>，可對單一類別或單一方法按 ▷ 執行；在測試程式中，每個 <code>@Test</code> 左側也有 ▷ 可直接執行。</li>
+<li><strong>執行 Demo 工作</strong>：按 <code>Ctrl+Shift+P</code>，輸入「Tasks: Run Task」，選擇 <code>HW2-1 Edge coverage（含 JaCoCo 報告）</code> 等工作。</li>
+<li><strong>查看報告</strong>：執行「開啟 JaCoCo 報告」或「開啟 PIT 報告」工作，或在檔案總管開啟 <code>target/site/jacoco/index.html</code>、<code>target/pit-reports/index.html</code>。</li>
+</ol>
+<h3 id="s42">7.4 常用指令</h3>
+<table>
+<thead>
+<tr>
+<th>目的</th>
+<th>指令</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>全部測試</td>
+<td><code>mvn test</code></td>
+</tr>
+<tr>
+<td>只跑 Edge coverage 並產生 JaCoCo 報告</td>
+<td><code>mvn "-Dtest=EdgeCoverageTest" clean test jacoco:report</code></td>
+</tr>
+<tr>
+<td>只跑 Edge-Pair coverage 並產生 JaCoCo 報告</td>
+<td><code>mvn "-Dtest=EdgePairCoverageTest" clean test jacoco:report</code></td>
+</tr>
+<tr>
+<td>只跑 Path coverage 並產生 JaCoCo 報告</td>
+<td><code>mvn "-Dtest=PathCoverageTest" clean test jacoco:report</code></td>
+</tr>
+<tr>
+<td>印出 Graph coverage 計算結果</td>
+<td><code>mvn "-Dtest=GraphCoverageAnalysisTest" test</code></td>
+</tr>
+<tr>
+<td>只跑 Stress coverage 並產生 JaCoCo 報告</td>
+<td><code>mvn "-Dtest=StressCoverageTest" clean test jacoco:report</code></td>
+</tr>
+<tr>
+<td>只跑單一案例</td>
+<td><code>mvn "-Dtest=StressCoverageTest#rejectsNull" test</code></td>
+</tr>
+<tr>
+<td>全部測試、JaCoCo 門檻與 PIT</td>
+<td><code>mvn clean verify org.pitest:pitest-maven:mutationCoverage</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="s43">8. Demo 步驟</h2>
+<p>建議順序如下，全程約 6～8 分鐘。每一步都先開啟測試程式說明案例，再執行指令展示結果。</p>
+<table>
+<thead>
+<tr>
+<th>步驟</th>
+<th>操作</th>
+<th>展示重點</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>開啟 <code>src/main/java/tw/edu/testing/PasswordValidator.java</code> 與 <code>docs/PasswordValidator-CFG.png</code></td>
+<td>程式含 <code>if</code> 與 <code>while</code>；說明節點 N1～N15、邊 E1～E17、終點 N2／N4／N15，以及兩項不可行需求</td>
+</tr>
+<tr>
+<td>1-1</td>
+<td>開啟 <code>PasswordValidatorTest.java</code>，執行 <code>mvn "-Dtest=PasswordValidatorTest" clean test jacoco:report</code></td>
+<td>（複習作業 1）9 個案例全部通過，Line 17/17</td>
+</tr>
+<tr>
+<td>2</td>
+<td>開啟 <code>EdgeCoverageTest.java</code>，執行 <code>mvn "-Dtest=EdgeCoverageTest" clean test jacoco:report</code></td>
+<td>終端機顯示 <code>Tests run: 3</code>、<code>BUILD SUCCESS</code>；說明 3 個案例涵蓋 17 條邊，3 是最少案例數</td>
+</tr>
+<tr>
+<td>3</td>
+<td>開啟 <code>target/site/jacoco/index.html</code>，點進 <code>PasswordValidator</code> 原始碼頁</td>
+<td>總覽表 Lines 的 Missed 為 0（Line 100%）；第 10、27 行為黃色（部分子條件分支未涵蓋，Branch 3 of 16 missed），屬於作業 4 範圍</td>
+</tr>
+<tr>
+<td>4</td>
+<td>開啟 <code>EdgePairCoverageTest.java</code>，執行 <code>mvn "-Dtest=EdgePairCoverageTest" test</code></td>
+<td>說明為何需要 <code>"ab1!"</code> 的 <code>!</code> 才能走到 [N10 N12 N14]；21 項需求扣除 2 項不可行</td>
+</tr>
+<tr>
+<td>5</td>
+<td>開啟 <code>PathCoverageTest.java</code>，執行 <code>mvn "-Dtest=PathCoverageTest" test</code></td>
+<td>說明 (1) 沒繞過迴圈 P1、P2；(2) 有繞過迴圈 P4～P6；P3、P7 不可行</td>
+</tr>
+<tr>
+<td>6</td>
+<td>執行 <code>mvn "-Dtest=GraphCoverageAnalysisTest" test</code></td>
+<td>終端機印出每個案例的測試路徑與 <code>17/17</code>、<code>19/19</code>、<code>5/5</code> 涵蓋率</td>
+</tr>
+<tr>
+<td>7</td>
+<td>開啟 <code>StressCoverageTest.java</code>，執行 <code>mvn "-Dtest=StressCoverageTest" clean test jacoco:report</code></td>
+<td>先說明有效範圍 4～6，再展示 5 個案例通過；說明空字串、超長字串與 ST3、ST4 同類，不另增案例</td>
+</tr>
+<tr>
+<td>8</td>
+<td>（選擇性）點 VS Code 左側「Testing」面板，按全部執行</td>
+<td>以圖形介面展示 27 個測試全部綠色勾勾</td>
+</tr>
+<tr>
+<td>9</td>
+<td>（選擇性）執行 <code>mvn clean verify org.pitest:pitest-maven:mutationCoverage</code></td>
+<td>顯示 <code>All coverage checks have been met</code>；PIT 為 16/16</td>
+</tr>
+</tbody>
+</table>
+<p>截圖建議：每個作業截取「測試程式」與「終端機執行結果」各一張，比照 <code>docs/Homework1.docx</code> 的格式貼入 Word 報告。</p>
+<hr />
+<h2 id="s44">9. 修改檔案與影響範圍檢查</h2>
+<h3 id="s45">9.1 修改檔案</h3>
+<table>
+<thead>
+<tr>
+<th>檔案</th>
+<th>狀態</th>
+<th>內容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>src/test/java/tw/edu/testing/EdgeCoverageTest.java</code></td>
+<td>新增</td>
+<td>作業 2-1，3 個案例</td>
+</tr>
+<tr>
+<td><code>src/test/java/tw/edu/testing/EdgePairCoverageTest.java</code></td>
+<td>新增</td>
+<td>作業 2-2，3 個案例</td>
+</tr>
+<tr>
+<td><code>src/test/java/tw/edu/testing/PathCoverageTest.java</code></td>
+<td>新增</td>
+<td>作業 2-3，3 個案例</td>
+</tr>
+<tr>
+<td><code>src/test/java/tw/edu/testing/StressCoverageTest.java</code></td>
+<td>新增</td>
+<td>作業 3，5 個案例</td>
+</tr>
+<tr>
+<td><code>src/test/java/tw/edu/testing/PasswordValidatorTest.java</code></td>
+<td>未修改</td>
+<td>作業 1 的 9 個案例維持原樣，不屬作業 2、3 異動</td>
+</tr>
+<tr>
+<td><code>src/test/java/tw/edu/testing/PasswordValidatorCfg.java</code></td>
+<td>新增</td>
+<td>CFG 模型（邊、Edge-Pair、Path 需求與不可行需求）</td>
+</tr>
+<tr>
+<td><code>src/test/java/tw/edu/testing/GraphCoverageAnalysisTest.java</code></td>
+<td>新增</td>
+<td>計算並驗證三種 Graph coverage 為 100%</td>
+</tr>
+<tr>
+<td><code>pom.xml</code></td>
+<td>修改</td>
+<td>JaCoCo agent 改由 Surefire 以相對路徑掛載；PIT 不沿用 Surefire <code>argLine</code></td>
+</tr>
+<tr>
+<td><code>README.md</code></td>
+<td>修改</td>
+<td>新增作業 2、3 的說明、指令與中文路徑注意事項</td>
+</tr>
+<tr>
+<td><code>docs/Homework2-3.md</code>、<code>docs/Homework2-3.html</code></td>
+<td>新增</td>
+<td>本報告</td>
+</tr>
+<tr>
+<td><code>reports/</code></td>
+<td>未修改</td>
+<td>報告副本維持作業 1 版本；作業 2、3 結果以 <code>target/</code> 重新產生為準</td>
+</tr>
+<tr>
+<td><code>src/main/java/tw/edu/testing/PasswordValidator.java</code></td>
+<td>未修改</td>
+<td>作業 1 的行號與 N1～N15 維持不變</td>
+</tr>
+</tbody>
+</table>
+<h3 id="s46">9.2 修改 pom.xml 的原因</h3>
+<p>原本由 <code>jacoco:prepare-agent</code> 產生 JaCoCo agent 參數，其中 <code>destfile</code> 是絕對路徑。專案放在含中文的路徑（例如 <code>Downloads\軟體正規方法</code>）時，Windows 傳給測試 JVM 的參數會亂碼，導致 <code>jacoco.exec</code> 沒有產生：</p>
+<ul>
+<li><code>jacoco:report</code> 顯示「Skipping JaCoCo execution due to missing execution data file」，沒有 HTML 報告。</li>
+<li><code>mvn clean verify</code> 的 100% 行覆蓋率門檻被略過，仍顯示 <code>BUILD SUCCESS</code>，容易誤以為門檻已檢查。</li>
+</ul>
+<p>改為由 Surefire 的 <code>argLine</code> 掛載 agent，<code>destfile=target/jacoco.exec</code> 使用相對路徑，與專案所在路徑無關。</p>
+<h3 id="s47">9.3 影響範圍檢查</h3>
+<table>
+<thead>
+<tr>
+<th>呼叫端</th>
+<th>說明</th>
+<th>結果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mvn test</code></td>
+<td>全部 27 個測試</td>
+<td>通過，並產生 <code>target/jacoco.exec</code></td>
+</tr>
+<tr>
+<td><code>mvn "-Dtest=…" clean test jacoco:report</code></td>
+<td>指定類別或方法，產生 JaCoCo 報告</td>
+<td>通過，中文路徑下也能產生報告（修改前無法產生）</td>
+</tr>
+<tr>
+<td><code>mvn clean verify</code></td>
+<td>JaCoCo report 與 100% 行覆蓋率門檻</td>
+<td>通過，顯示 <code>All coverage checks have been met</code>（修改前門檻被略過）</td>
+</tr>
+<tr>
+<td><code>mvn org.pitest:pitest-maven:mutationCoverage</code>（單獨執行）</td>
+<td>README 所列的 PIT 單獨指令</td>
+<td>建置成功；變異 16/16 KILLED（100%）</td>
+</tr>
+<tr>
+<td><code>mvn clean verify org.pitest:pitest-maven:mutationCoverage</code></td>
+<td>全部報告</td>
+<td>通過</td>
+</tr>
+<tr>
+<td><code>PasswordValidatorTest</code>（作業 1）</td>
+<td>未修改，維持 9 個案例</td>
+<td>9 個案例通過；單獨執行 Line 17/17（100%）</td>
+</tr>
+<tr>
+<td>README 的 <code>-Dtest=PasswordValidatorTest#rejectsNull+rejectsTooShort</code> 範例</td>
+<td>保留的方法名稱</td>
+<td>方法仍存在，指令可用</td>
+</tr>
+<tr>
+<td>VS Code Testing 面板</td>
+<td>由 Test Runner for Java 直接啟動 JUnit，不經過 Surefire</td>
+<td>預期不受影響；VS Code 需重新載入視窗後才能實際點擊驗證，請於 Demo 前執行一次</td>
+</tr>
+<tr>
+<td><code>-Dmaven.repo.local=.m2</code>（README 選用參數）</td>
+<td>agent jar 會位於專案內；若專案路徑含中文，jar 路徑同樣會亂碼</td>
+<td>修改前後相同的既有限制，未另行驗證；含中文路徑時請勿使用此參數</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="s48">10. 變更歷程</h2>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th>時間</th>
+<th>說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>v1.2.0</td>
+<td>2026-11-09 14:46</td>
+<td>作業 1 測試還原為原本 9 個案例（不屬作業 2、3 異動）、reports/ 還原為作業 1 版本，同步更新測試總數（27）、JaCoCo Branch（16/16）與 PIT（16/16）</td>
+</tr>
+<tr>
+<td>v1.1.1</td>
+<td>2026-11-04 10:55</td>
+<td>修正第 8 章 Demo 步驟 3：JaCoCo 原始碼頁第 10、27 行實際為黃色（部分子條件分支未涵蓋），原誤寫為全部綠色</td>
+</tr>
+<tr>
+<td>v1.1.0</td>
+<td>2026-10-19 15:42</td>
+<td>依「使用最少個測試案例」：作業 1 改為 3 個案例；作業 3 移除與長度 3、7 同類的空字串與超長字串，改為 5 個案例；更新工具結果與影響範圍</td>
+</tr>
+<tr>
+<td>v1.0.0</td>
+<td>2026-10-19 15:19</td>
+<td>初版：Edge、Edge-Pair、Path、Stress Testing coverage 測試案例與分析，VS Code 操作與 Demo 步驟</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>
+const links=[...document.querySelectorAll('nav a')];
+const map=new Map(links.map(a=>[a.getAttribute('href').slice(1),a]));
+const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(a=>a.classList.remove('active'));map.get(e.target.id)?.classList.add('active');}})},{rootMargin:'0px 0px -75% 0px'});
+document.querySelectorAll('main h2[id]').forEach(h=>io.observe(h));
+</script>
+</body>
+</html>

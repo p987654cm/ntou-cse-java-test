@@ -25,6 +25,14 @@
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- JaCoCo agent，由 Surefire 的 argLine 掛載到測試 JVM -->
+        <dependency>
+            <groupId>org.jacoco</groupId>
+            <artifactId>org.jacoco.agent</artifactId>
+            <version>${jacoco.version}</version>
+            <classifier>runtime</classifier>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -40,18 +48,32 @@
                 <version>3.5.2</version>
                 <configuration>
                     <useModulePath>false</useModulePath>
+                    <!--
+                        自行掛載 JaCoCo agent，destfile 使用相對路徑（相對於專案根目錄）。
+                        原因：prepare-agent 產生的是絕對路徑，專案放在中文路徑時，
+                        Windows 傳給測試 JVM 的參數會亂碼，導致 jacoco.exec 無法產生。
+                    -->
+                    <argLine>-javaagent:${org.jacoco:org.jacoco.agent:jar:runtime}=destfile=target/jacoco.exec</argLine>
                 </configuration>
+            </plugin>
+            <plugin>
+                <!-- 提供 ${org.jacoco:org.jacoco.agent:jar:runtime} 屬性：JaCoCo agent jar 的實際位置 -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.8.1</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>properties</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>${jacoco.version}</version>
                 <executions>
-                    <execution>
-                        <goals>
-                            <goal>prepare-agent</goal>
-                        </goals>
-                    </execution>
                     <execution>
                         <id>report</id>
                         <phase>verify</phase>
@@ -106,6 +128,8 @@
                         <param>XML</param>
                     </outputFormats>
                     <timestampedReports>false</timestampedReports>
+                    <!-- 不沿用 Surefire 的 argLine（JaCoCo agent），單獨執行 PIT 時也不受影響 -->
+                    <parseSurefireArgLine>false</parseSurefireArgLine>
                 </configuration>
             </plugin>
         </plugins>
